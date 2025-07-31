@@ -138,6 +138,17 @@ app.use((req, res, next) => {
 
 // Global OPTIONS handler for CORS preflight requests
 app.options('*', (req, res) => {
+  console.log('🌐 OPTIONS request received for:', req.path);
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(200).end();
+});
+
+// Specific OPTIONS handler for auth routes
+app.options('/api/auth/*', (req, res) => {
+  console.log('🔐 OPTIONS request received for auth route:', req.path);
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
