@@ -67,13 +67,24 @@ router.post('/', authenticateToken, async (req, res) => {
           }
         }
 
+        // Try to get order details if not provided
+        let orderDetailsToUse = orderDetails;
+        if (!orderDetailsToUse && orderId) {
+          const Order = require('../models/Order');
+          const order = await Order.findById(orderId);
+          if (order && order.products) {
+            orderDetailsToUse = { products: order.products };
+            console.log('📧 Found order details from database:', orderDetailsToUse);
+          }
+        }
+
         if (emailToUse) {
           // Extract status label from title (e.g., "📦 Order Status Updated: Order Confirmed" -> "Order Confirmed")
           const statusLabel = title.replace('📦 Order Status Updated: ', '');
           
           console.log('📧 Attempting to send email:', { emailToUse, orderNumber, statusLabel });
           
-          emailResult = await sendOrderStatusUpdateEmail(emailToUse, orderNumber, statusLabel, orderDetails);
+          emailResult = await sendOrderStatusUpdateEmail(emailToUse, orderNumber, statusLabel, orderDetailsToUse);
           console.log('📧 Email notification sent successfully:', emailResult.messageId);
         } else {
           console.log('⚠️ Email not sent - no user email found');
