@@ -2,6 +2,8 @@ const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
+const { sendOrderStatusUpdateEmail } = require('../services/emailService');
 const Counter = require('../models/Counter');
 
 const router = express.Router();
@@ -294,10 +296,67 @@ router.put('/:id/status', authenticateToken, async (req, res) => {
 
     console.log('✅ Order status updated successfully:', formattedOrder.status);
 
-    res.json({
-      success: true,
-      order: formattedOrder
-    });
+    // Get user details for email notification
+    const user = await User.findById(order.user_id);
+    if (user && user.email) {
+      try {
+        // Create notification
+        const notification = new Notification({
+          user_id: order.user_id,
+          type: 'order_status_update',
+          title: `📦 Order Status Updated: ${mappedStatus.replace('order_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+          message: `Your order ${order.order_number} status has been updated to ${mappedStatus.replace('order_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+          order_id: order._id,
+          order_number: order.order_number,
+          read: false
+        });
+
+        await notification.save();
+        console.log('✅ Notification created for user:', user.email);
+
+        // Send email notification
+        const statusLabel = mappedStatus.replace('order_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const emailResult = await sendOrderStatusUpdateEmail(
+          user.email,
+          order.order_number,
+          statusLabel,
+          { products: order.products }
+        );
+
+        console.log('📧 Email notification sent successfully:', emailResult.messageId);
+
+        res.json({
+          success: true,
+          order: formattedOrder,
+          notification: {
+            id: notification._id,
+            emailSent: true,
+            emailMessageId: emailResult.messageId
+          }
+        });
+      } catch (emailError) {
+        console.error('❌ Failed to send email notification:', emailError);
+        // Don't fail the entire request if email fails
+        res.json({
+          success: true,
+          order: formattedOrder,
+          notification: {
+            emailSent: false,
+            error: emailError.message
+          }
+        });
+      }
+    } else {
+      console.log('⚠️ User not found or no email address for order:', order.order_number);
+      res.json({
+        success: true,
+        order: formattedOrder,
+        notification: {
+          emailSent: false,
+          error: 'User not found or no email address'
+        }
+      });
+    }
   } catch (error) {
     console.error('❌ Update order status error:', error);
     res.status(500).json({

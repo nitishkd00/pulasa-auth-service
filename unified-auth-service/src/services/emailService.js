@@ -22,11 +22,13 @@ const sendEmail = async (to, subject, body, htmlBody) => {
         Data: subject,
       },
       Body: {
+        Html: {
+          Data: htmlBody || body.replace(/\n/g, '<br>'), // Prioritize HTML
+          Charset: 'UTF-8'
+        },
         Text: {
           Data: body,
-        },
-        Html: {
-          Data: htmlBody || body.replace(/\n/g, '<br>'), // Use HTML body if provided
+          Charset: 'UTF-8'
         },
       },
     },
