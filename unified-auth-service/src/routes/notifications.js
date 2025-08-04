@@ -57,6 +57,8 @@ router.post('/', authenticateToken, async (req, res) => {
         // Extract status label from title (e.g., "📦 Order Status Updated: Order Confirmed" -> "Order Confirmed")
         const statusLabel = title.replace('📦 Order Status Updated: ', '');
         
+        console.log('📧 Attempting to send email:', { userEmail, orderNumber, statusLabel });
+        
         emailResult = await sendOrderStatusUpdateEmail(userEmail, orderNumber, statusLabel, orderDetails);
         console.log('📧 Email notification sent successfully:', emailResult.messageId);
       } catch (emailError) {
@@ -64,6 +66,8 @@ router.post('/', authenticateToken, async (req, res) => {
         // Don't fail the entire request if email fails
         emailResult = { success: false, error: emailError.message };
       }
+    } else {
+      console.log('⚠️ Email not sent - missing parameters:', { type, userEmail: !!userEmail, orderNumber: !!orderNumber });
     }
 
     res.json({
