@@ -24,15 +24,17 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const { userId, type, title, message, orderId, orderNumber, userEmail, orderDetails } = req.body;
 
-    console.log('📧 Creating notification:', {
+    console.log('📧 Creating notification - FULL REQUEST:', {
       userId,
       type,
       title,
       message,
       orderId,
       orderNumber,
-      userEmail,
-      createdBy: req.user?.email
+      userEmail: userEmail ? 'PRESENT' : 'MISSING',
+      orderDetails: orderDetails ? 'PRESENT' : 'MISSING',
+      createdBy: req.user?.email,
+      bodyKeys: Object.keys(req.body)
     });
 
     // Save notification to database
@@ -52,22 +54,38 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Send email notification for order status updates
     let emailResult = null;
-    if (type === 'order_status_update' && userEmail && orderNumber) {
+    if (type === 'order_status_update' && orderNumber) {
       try {
-        // Extract status label from title (e.g., "📦 Order Status Updated: Order Confirmed" -> "Order Confirmed")
-        const statusLabel = title.replace('📦 Order Status Updated: ', '');
-        
-        console.log('📧 Attempting to send email:', { userEmail, orderNumber, statusLabel });
-        
-        emailResult = await sendOrderStatusUpdateEmail(userEmail, orderNumber, statusLabel, orderDetails);
-        console.log('📧 Email notification sent successfully:', emailResult.messageId);
+        // Try to get user email if not provided
+        let emailToUse = userEmail;
+        if (!emailToUse && userId) {
+          const User = require('../models/User');
+          const user = await User.findById(userId);
+          if (user && user.email) {
+            emailToUse = user.email;
+            console.log('📧 Found user email from database:', emailToUse);
+          }
+        }
+
+        if (emailToUse) {
+          // Extract status label from title (e.g., "📦 Order Status Updated: Order Confirmed" -> "Order Confirmed")
+          const statusLabel = title.replace('📦 Order Status Updated: ', '');
+          
+          console.log('📧 Attempting to send email:', { emailToUse, orderNumber, statusLabel });
+          
+          emailResult = await sendOrderStatusUpdateEmail(emailToUse, orderNumber, statusLabel, orderDetails);
+          console.log('📧 Email notification sent successfully:', emailResult.messageId);
+        } else {
+          console.log('⚠️ Email not sent - no user email found');
+          emailResult = { success: false, error: 'No user email found' };
+        }
       } catch (emailError) {
         console.error('❌ Failed to send email notification:', emailError);
         // Don't fail the entire request if email fails
         emailResult = { success: false, error: emailError.message };
       }
     } else {
-      console.log('⚠️ Email not sent - missing parameters:', { type, userEmail: !!userEmail, orderNumber: !!orderNumber });
+      console.log('⚠️ Email not sent - missing parameters:', { type, orderNumber: !!orderNumber });
     }
 
     res.json({
