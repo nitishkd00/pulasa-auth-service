@@ -60,10 +60,26 @@ router.post('/', authenticateToken, async (req, res) => {
         let emailToUse = userEmail;
         if (!emailToUse && userId) {
           const User = require('../models/User');
+          console.log('📧 Looking up user by ID:', userId);
           const user = await User.findById(userId);
           if (user && user.email) {
             emailToUse = user.email;
             console.log('📧 Found user email from database:', emailToUse);
+          } else {
+            console.log('⚠️ User not found or no email for ID:', userId);
+            // Try to find user by email if we have orderId
+            if (orderId) {
+              const Order = require('../models/Order');
+              const order = await Order.findById(orderId);
+              if (order && order.user_id) {
+                console.log('📧 Trying to find user from order:', order.user_id);
+                const orderUser = await User.findById(order.user_id);
+                if (orderUser && orderUser.email) {
+                  emailToUse = orderUser.email;
+                  console.log('📧 Found user email from order:', emailToUse);
+                }
+              }
+            }
           }
         }
 
