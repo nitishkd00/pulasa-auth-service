@@ -404,5 +404,7 @@ const formatOrderDetailsHtml = (orderDetails) => {
 
 module.exports = {
   sendEmail,
-  sendOrderStatusUpdateEmail
+  sendOrderStatusUpdateEmail,
+  createHtmlEmail,
+  formatOrderDetailsHtml
 }; 
