@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const Notification = require('../models/Notification');
+const { sendOrderStatusUpdateEmail } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.post('/test', (req, res) => {
 // Create notification
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { userId, type, title, message, orderId, orderNumber } = req.body;
+    const { userId, type, title, message, orderId, orderNumber, userEmail, orderDetails } = req.body;
 
     console.log('📧 Creating notification:', {
       userId,
@@ -30,6 +31,7 @@ router.post('/', authenticateToken, async (req, res) => {
       message,
       orderId,
       orderNumber,
+      userEmail,
       createdBy: req.user?.email
     });
 
@@ -48,6 +50,22 @@ router.post('/', authenticateToken, async (req, res) => {
 
     console.log('✅ Notification saved to database:', notification);
 
+    // Send email notification for order status updates
+    let emailResult = null;
+    if (type === 'order_status_update' && userEmail && orderNumber) {
+      try {
+        // Extract status label from title (e.g., "📦 Order Status Updated: Order Confirmed" -> "Order Confirmed")
+        const statusLabel = title.replace('📦 Order Status Updated: ', '');
+        
+        emailResult = await sendOrderStatusUpdateEmail(userEmail, orderNumber, statusLabel, orderDetails);
+        console.log('📧 Email notification sent successfully:', emailResult.messageId);
+      } catch (emailError) {
+        console.error('❌ Failed to send email notification:', emailError);
+        // Don't fail the entire request if email fails
+        emailResult = { success: false, error: emailError.message };
+      }
+    }
+
     res.json({
       success: true,
       notification: {
@@ -60,7 +78,9 @@ router.post('/', authenticateToken, async (req, res) => {
         orderNumber: notification.order_number,
         read: notification.read,
         createdAt: notification.created_at
-      }
+      },
+      emailSent: emailResult?.success || false,
+      emailMessageId: emailResult?.messageId
     });
   } catch (error) {
     console.error('❌ Create notification error:', error);

@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { authenticateToken } = require('../middleware/auth');
 const databaseBridge = require('../services/DatabaseBridge');
 
 const router = express.Router();
@@ -244,6 +245,44 @@ router.post('/logout', (req, res) => {
     success: true,
     message: 'Logout successful'
   });
+});
+
+// Get user by ID endpoint (for admin use)
+router.get('/user/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    console.log(`👤 Get user by ID: ${userId}, requested by: ${req.user?.email}`);
+
+    // Only allow admins or the user themselves to get user details
+    if (!req.user.is_admin && req.user.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    const user = await databaseBridge.getUserById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: user
+    });
+
+  } catch (error) {
+    console.error('❌ Get user by ID error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
 });
 
 // Health check endpoint

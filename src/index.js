@@ -42,7 +42,7 @@ app.use(helmet({
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:8080', 'http://localhost:3001', 'http://localhost:3000', 'http://localhost:8888'];
+  : ['http://localhost:8080', 'http://localhost:3001', 'http://localhost:3000', 'http://localhost:8888', 'https://pulasa.com', 'https://www.pulasa.com', 'https://auction.pulasa.com'];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -106,6 +106,57 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'unified-auth-service'
   });
+});
+
+// Test email endpoint (for debugging)
+app.get('/api/test-email', async (req, res) => {
+  try {
+    const { email } = req.query;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email parameter required. Use: /api/test-email?email=your-email@example.com'
+      });
+    }
+
+    console.log('🧪 Testing email service for:', email);
+
+    const { sendOrderStatusUpdateEmail } = require('./services/emailService');
+    
+    const testOrderDetails = {
+      products: [
+        {
+          name: 'Pulasa Curry',
+          quantity: 1,
+          price: 1500
+        }
+      ]
+    };
+
+    const result = await sendOrderStatusUpdateEmail(
+      email,
+      'TEST-001',
+      'Order Confirmed',
+      testOrderDetails
+    );
+
+    console.log('✅ Test email sent successfully:', result);
+
+    res.json({
+      success: true,
+      message: 'Test email sent successfully',
+      result: result
+    });
+
+  } catch (error) {
+    console.error('❌ Test email failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error
+    });
+  }
 });
 
 // Ping endpoint for UptimeRobot
