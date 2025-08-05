@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { authenticateToken } = require('../middleware/auth');
 const Notification = require('../models/Notification');
 const { sendOrderStatusUpdateEmail } = require('../services/emailService');
@@ -67,7 +68,10 @@ router.post('/', authenticateToken, async (req, res) => {
           console.log('🔍 EMAIL DEBUG - userEmail is missing, looking up by userId:', userId);
           const User = require('../models/User');
           console.log('📧 Looking up user by ID:', userId);
-          const user = await User.findById(userId);
+          
+          // Convert string userId to ObjectId
+          const userObjectId = mongoose.Types.ObjectId(userId);
+          const user = await User.findById(userObjectId);
           console.log('🔍 EMAIL DEBUG - User lookup result:', user ? 'User found' : 'User not found');
           
           if (user && user.email) {
@@ -79,12 +83,14 @@ router.post('/', authenticateToken, async (req, res) => {
             if (orderId) {
               console.log('🔍 EMAIL DEBUG - Trying fallback: lookup user from orderId:', orderId);
               const Order = require('../models/Order');
-              const order = await Order.findById(orderId);
+              const orderObjectId = mongoose.Types.ObjectId(orderId);
+              const order = await Order.findById(orderObjectId);
               console.log('🔍 EMAIL DEBUG - Order lookup result:', order ? 'Order found' : 'Order not found');
               
               if (order && order.user_id) {
                 console.log('📧 Trying to find user from order:', order.user_id);
-                const orderUser = await User.findById(order.user_id);
+                const orderUserObjectId = mongoose.Types.ObjectId(order.user_id);
+                const orderUser = await User.findById(orderUserObjectId);
                 console.log('🔍 EMAIL DEBUG - Order user lookup result:', orderUser ? 'User found' : 'User not found');
                 
                 if (orderUser && orderUser.email) {
@@ -113,7 +119,8 @@ router.post('/', authenticateToken, async (req, res) => {
         if (!orderDetailsToUse && orderId) {
           console.log('🔍 EMAIL DEBUG - orderDetails missing, looking up by orderId:', orderId);
           const Order = require('../models/Order');
-          const order = await Order.findById(orderId);
+          const orderObjectId = mongoose.Types.ObjectId(orderId);
+          const order = await Order.findById(orderObjectId);
           console.log('🔍 EMAIL DEBUG - Order lookup for details result:', order ? 'Order found' : 'Order not found');
           
           if (order && order.products) {
