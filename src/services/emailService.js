@@ -139,7 +139,7 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
             <!-- Status Card -->
             <div class="status-card">
                 <div class="status-badge">${statusLabel}</div>
-                <div class="status-title">🎉 Great News!</div>
+                <div class="status-title">${statusLabel === 'Order Cancelled' ? '⚠️ Order Update' : '🎉 Great News!'}</div>
                 <div class="status-message">${getStatusSpecificMessage(statusLabel)}</div>
             </div>
 
@@ -281,7 +281,7 @@ const getStatusSpecificMessage = (statusLabel) => {
     'Order Packed': 'Your order has been carefully packed and is ready for shipping.',
     'Order Shipped': 'Your order is on its way! You will receive tracking details soon.',
     'Order Delivered': 'Your order has been successfully delivered. Enjoy your Pulasa products!',
-    'Order Cancelled': 'Your order has been cancelled. If you have any questions, please contact support.'
+    'Order Cancelled': 'We\'re sorry, but your order has been cancelled. If you have any questions or concerns, please contact our customer support team.'
   };
   
   return messages[statusLabel] || 'Your order status has been updated.';
