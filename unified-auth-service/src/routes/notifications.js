@@ -139,9 +139,16 @@ router.post('/', authenticateToken, async (req, res) => {
           const statusLabel = title.replace('📦 Order Status Updated: ', '');
           
           console.log('📧 Attempting to send email:', { emailToUse, orderNumber, statusLabel });
+          console.log('🧪 About to call sendOrderStatusUpdateEmail with:', {
+            email: emailToUse,
+            orderNumber,
+            statusLabel,
+            orderDetails: orderDetailsToUse ? 'Present' : 'Missing'
+          });
           
           emailResult = await sendOrderStatusUpdateEmail(emailToUse, orderNumber, statusLabel, orderDetailsToUse);
           console.log('✅ EMAIL DEBUG - Email sent successfully:', emailResult.messageId);
+          console.log('📤 Email sending result:', emailResult);
         } else {
           console.log('❌ EMAIL DEBUG - Email not sent - no user email found');
           emailResult = { success: false, error: 'No user email found' };
