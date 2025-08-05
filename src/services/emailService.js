@@ -214,10 +214,12 @@ const formatOrderDetailsHtml = (orderDetails) => {
   return products.map(product => `
     <div class="product-card">
       <div class="product-name">${product.name || 'Product'}</div>
-      <div class="product-details" style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-weight: 500;">Quantity: ${product.quantity || 1}</span>
-        <span style="font-weight: 600; color: #1F2937;">₹${product.price || 0}</span>
-      </div>
+      <table style="width: 100%; margin-top: 12px; border-collapse: collapse;">
+        <tr>
+          <td style="font-weight: 500; color: #6B7280; padding: 4px 0;">Quantity: ${product.quantity || 1}</td>
+          <td style="font-weight: 600; color: #1F2937; padding: 4px 0; text-align: right;">₹${product.price || 0}</td>
+        </tr>
+      </table>
     </div>
   `).join('');
 };
