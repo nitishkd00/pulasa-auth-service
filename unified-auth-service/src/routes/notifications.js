@@ -54,45 +54,78 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Send email notification for order status updates
     let emailResult = null;
+    console.log('🔍 EMAIL DEBUG - Starting email check:', { type, orderNumber, userId, orderId });
+    
     if (type === 'order_status_update' && orderNumber) {
+      console.log('✅ Email check passed - type and orderNumber present');
       try {
         // Try to get user email if not provided
         let emailToUse = userEmail;
+        console.log('🔍 EMAIL DEBUG - Initial emailToUse:', emailToUse);
+        
         if (!emailToUse && userId) {
+          console.log('🔍 EMAIL DEBUG - userEmail is missing, looking up by userId:', userId);
           const User = require('../models/User');
           console.log('📧 Looking up user by ID:', userId);
           const user = await User.findById(userId);
+          console.log('🔍 EMAIL DEBUG - User lookup result:', user ? 'User found' : 'User not found');
+          
           if (user && user.email) {
             emailToUse = user.email;
-            console.log('📧 Found user email from database:', emailToUse);
+            console.log('✅ EMAIL DEBUG - Found user email from database:', emailToUse);
           } else {
-            console.log('⚠️ User not found or no email for ID:', userId);
+            console.log('❌ EMAIL DEBUG - User not found or no email for ID:', userId);
             // Try to find user by email if we have orderId
             if (orderId) {
+              console.log('🔍 EMAIL DEBUG - Trying fallback: lookup user from orderId:', orderId);
               const Order = require('../models/Order');
               const order = await Order.findById(orderId);
+              console.log('🔍 EMAIL DEBUG - Order lookup result:', order ? 'Order found' : 'Order not found');
+              
               if (order && order.user_id) {
                 console.log('📧 Trying to find user from order:', order.user_id);
                 const orderUser = await User.findById(order.user_id);
+                console.log('🔍 EMAIL DEBUG - Order user lookup result:', orderUser ? 'User found' : 'User not found');
+                
                 if (orderUser && orderUser.email) {
                   emailToUse = orderUser.email;
-                  console.log('📧 Found user email from order:', emailToUse);
+                  console.log('✅ EMAIL DEBUG - Found user email from order:', emailToUse);
+                } else {
+                  console.log('❌ EMAIL DEBUG - Order user not found or no email');
                 }
+              } else {
+                console.log('❌ EMAIL DEBUG - Order not found or no user_id');
               }
+            } else {
+              console.log('❌ EMAIL DEBUG - No orderId provided for fallback');
             }
           }
+        } else if (emailToUse) {
+          console.log('✅ EMAIL DEBUG - userEmail was provided:', emailToUse);
+        } else {
+          console.log('❌ EMAIL DEBUG - No userId provided and no userEmail');
         }
 
         // Try to get order details if not provided
         let orderDetailsToUse = orderDetails;
+        console.log('🔍 EMAIL DEBUG - Initial orderDetailsToUse:', orderDetailsToUse ? 'Present' : 'Missing');
+        
         if (!orderDetailsToUse && orderId) {
+          console.log('🔍 EMAIL DEBUG - orderDetails missing, looking up by orderId:', orderId);
           const Order = require('../models/Order');
           const order = await Order.findById(orderId);
+          console.log('🔍 EMAIL DEBUG - Order lookup for details result:', order ? 'Order found' : 'Order not found');
+          
           if (order && order.products) {
             orderDetailsToUse = { products: order.products };
-            console.log('📧 Found order details from database:', orderDetailsToUse);
+            console.log('✅ EMAIL DEBUG - Found order details from database:', orderDetailsToUse);
+          } else {
+            console.log('❌ EMAIL DEBUG - Order not found or no products');
           }
         }
+
+        console.log('🔍 EMAIL DEBUG - Final emailToUse:', emailToUse);
+        console.log('🔍 EMAIL DEBUG - Final orderDetailsToUse:', orderDetailsToUse ? 'Present' : 'Missing');
 
         if (emailToUse) {
           // Extract status label from title (e.g., "📦 Order Status Updated: Order Confirmed" -> "Order Confirmed")
@@ -101,19 +134,21 @@ router.post('/', authenticateToken, async (req, res) => {
           console.log('📧 Attempting to send email:', { emailToUse, orderNumber, statusLabel });
           
           emailResult = await sendOrderStatusUpdateEmail(emailToUse, orderNumber, statusLabel, orderDetailsToUse);
-          console.log('📧 Email notification sent successfully:', emailResult.messageId);
+          console.log('✅ EMAIL DEBUG - Email sent successfully:', emailResult.messageId);
         } else {
-          console.log('⚠️ Email not sent - no user email found');
+          console.log('❌ EMAIL DEBUG - Email not sent - no user email found');
           emailResult = { success: false, error: 'No user email found' };
         }
       } catch (emailError) {
-        console.error('❌ Failed to send email notification:', emailError);
+        console.error('❌ EMAIL DEBUG - Failed to send email notification:', emailError);
         // Don't fail the entire request if email fails
         emailResult = { success: false, error: emailError.message };
       }
     } else {
-      console.log('⚠️ Email not sent - missing parameters:', { type, orderNumber: !!orderNumber });
+      console.log('❌ EMAIL DEBUG - Email not sent - missing parameters:', { type, orderNumber: !!orderNumber });
     }
+    
+    console.log('🔍 EMAIL DEBUG - Final emailResult:', emailResult);
 
     res.json({
       success: true,

@@ -108,6 +108,87 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Test user lookup and email endpoint
+app.get('/api/test-user-email', async (req, res) => {
+  try {
+    const { userId, orderId } = req.query;
+    
+    if (!userId && !orderId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Either userId or orderId is required'
+      });
+    }
+
+    console.log('🧪 Testing user lookup and email for:', { userId, orderId });
+
+    const User = require('./models/User');
+    const Order = require('./models/Order');
+    const { sendOrderStatusUpdateEmail } = require('./services/emailService');
+    
+    let userEmail = null;
+    let orderDetails = null;
+
+    // Try to find user by userId
+    if (userId) {
+      console.log('📧 Looking up user by ID:', userId);
+      const user = await User.findById(userId);
+      if (user && user.email) {
+        userEmail = user.email;
+        console.log('✅ Found user email:', userEmail);
+      } else {
+        console.log('❌ User not found or no email for ID:', userId);
+      }
+    }
+
+    // Try to find user from order
+    if (!userEmail && orderId) {
+      console.log('📧 Looking up order:', orderId);
+      const order = await Order.findById(orderId);
+      if (order && order.user_id) {
+        console.log('📧 Found order user_id:', order.user_id);
+        const orderUser = await User.findById(order.user_id);
+        if (orderUser && orderUser.email) {
+          userEmail = orderUser.email;
+          orderDetails = { products: order.products };
+          console.log('✅ Found user email from order:', userEmail);
+        }
+      }
+    }
+
+    if (userEmail) {
+      // Send test email
+      const emailResult = await sendOrderStatusUpdateEmail(
+        userEmail,
+        'TEST-EMAIL',
+        'Order Confirmed',
+        orderDetails || { products: [{ name: 'Test Product', quantity: 1, price: 1000 }] }
+      );
+
+      res.json({
+        success: true,
+        userEmail,
+        orderDetails,
+        emailResult
+      });
+    } else {
+      res.json({
+        success: false,
+        error: 'No user email found',
+        userId,
+        orderId
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Test user email failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Test email endpoint (for debugging)
 app.get('/api/test-email', async (req, res) => {
   try {
