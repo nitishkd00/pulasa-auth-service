@@ -17,6 +17,7 @@ class NotificationService {
 
   constructor() {
     this.baseURL = 'https://api.pulasa.com';
+    console.log('📧 Frontend: NotificationService initialized with updated code!');
   }
 
   /**
@@ -109,9 +110,10 @@ class NotificationService {
       }
 
       const data = await response.json();
-      console.log('📧 Frontend: Notification API response:', data);
+      console.log('📧 Frontend: Notification API response:', JSON.stringify(data, null, 2));
       console.log('📧 Frontend: Email sent status:', data.emailSent);
       console.log('📧 Frontend: Email message ID:', data.emailMessageId);
+      console.log('📧 Frontend: Full response keys:', Object.keys(data));
       return { success: data.success, error: data.error };
     } catch (error) {
       console.error('Failed to send notification:', error);

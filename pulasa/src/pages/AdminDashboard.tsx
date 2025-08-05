@@ -47,6 +47,7 @@ interface Order {
 }
 
 const AdminDashboard = () => {
+  console.log('📧 Frontend: AdminDashboard loaded with updated code!');
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
