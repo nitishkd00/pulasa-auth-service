@@ -49,8 +49,8 @@ const sendEmail = async (to, subject, body, htmlBody = null) => {
  * Create modern HTML email template
  */
 const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
-  // Base64 encoded logo to avoid "images hidden" issue
-  const logoBase64 = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
+  // Your actual Pulasa logo URL
+  const logoUrl = 'https://res.cloudinary.com/ddw4avyim/image/upload/v1752650318/WhatsApp_Image_2025-07-16_at_12.47.22_PM_1_eab8kb.jpg';
   const currentDate = new Date().toLocaleString('en-IN', { 
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -128,7 +128,8 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <img src="${logoBase64}" alt="Pulasa Logo" class="logo">
+            <img src="${logoUrl}" alt="Pulasa Logo" class="logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="logo-text" style="display: none; font-size: 32px; font-weight: bold; color: white; margin-bottom: 15px;">🐠 PULASA</div>
             <h1>Order Status Update</h1>
             <p>Stay updated with your order progress</p>
         </div>
