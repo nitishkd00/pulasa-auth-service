@@ -49,8 +49,8 @@ const sendEmail = async (to, subject, body, htmlBody = null) => {
  * Create modern HTML email template
  */
 const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
-  // Use a simple text-based logo instead of external image to avoid blocking
-  const logoText = '🐠 PULASA';
+  // Base64 encoded logo to avoid "images hidden" issue
+  const logoBase64 = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
   const currentDate = new Date().toLocaleString('en-IN', { 
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -62,21 +62,21 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
 
   // Pulasa brand colors (matching your app)
   const statusColor = {
-    'Order Raised': '#1e40af',      // Blue-800
-    'Order Confirmed': '#059669',   // Emerald-600
-    'Order Packed': '#d97706',      // Amber-600
-    'Order Shipped': '#7c3aed',     // Violet-600
-    'Order Delivered': '#047857',   // Emerald-700
-    'Order Cancelled': '#dc2626'    // Red-600
+    'Order Raised': '#3b82f6',      // Blue-500
+    'Order Confirmed': '#10b981',   // Emerald-500
+    'Order Packed': '#f59e0b',      // Amber-500
+    'Order Shipped': '#8b5cf6',     // Violet-500
+    'Order Delivered': '#059669',   // Emerald-600
+    'Order Cancelled': '#ef4444'    // Red-500
   };
 
   const statusBgColor = {
-    'Order Raised': '#dbeafe',      // Blue-100
-    'Order Confirmed': '#d1fae5',   // Emerald-100
-    'Order Packed': '#fef3c7',      // Amber-100
-    'Order Shipped': '#ede9fe',     // Violet-100
-    'Order Delivered': '#d1fae5',   // Emerald-100
-    'Order Cancelled': '#fee2e2'    // Red-100
+    'Order Raised': '#eff6ff',      // Blue-50
+    'Order Confirmed': '#ecfdf5',   // Emerald-50
+    'Order Packed': '#fffbeb',      // Amber-50
+    'Order Shipped': '#f5f3ff',     // Violet-50
+    'Order Delivered': '#ecfdf5',   // Emerald-50
+    'Order Cancelled': '#fef2f2'    // Red-50
   };
 
   const color = statusColor[statusLabel] || '#1e40af';
@@ -93,8 +93,8 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; }
-        .header { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px 20px; text-align: center; }
-        .logo-text { font-size: 32px; font-weight: bold; color: white; margin-bottom: 15px; }
+        .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px 20px; text-align: center; }
+        .logo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; filter: brightness(0) invert(1); margin-bottom: 15px; }
         .header h1 { color: white; font-size: 24px; font-weight: 600; margin-bottom: 5px; }
         .header p { color: rgba(255,255,255,0.9); font-size: 16px; }
         .content { padding: 30px 20px; }
@@ -111,10 +111,10 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
         .product-card { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
         .product-name { font-weight: 600; color: #1F2937; margin-bottom: 5px; }
         .product-details { display: flex; justify-content: space-between; color: #6B7280; font-size: 14px; }
-        .cta-button { display: inline-block; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
         .divider { height: 1px; background: #E5E7EB; margin: 30px 0; }
         .contact-info { text-align: center; margin: 20px 0; }
-        .contact-link { color: #1e40af; text-decoration: none; margin: 0 15px; }
+        .contact-link { color: #3b82f6; text-decoration: none; margin: 0 15px; }
         .footer { background: #1F2937; color: white; padding: 20px; text-align: center; font-size: 14px; }
         .footer a { color: #9CA3AF; text-decoration: none; }
         @media (max-width: 600px) {
@@ -128,7 +128,7 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="logo-text">${logoText}</div>
+            <img src="${logoBase64}" alt="Pulasa Logo" class="logo">
             <h1>Order Status Update</h1>
             <p>Stay updated with your order progress</p>
         </div>
@@ -213,9 +213,9 @@ const formatOrderDetailsHtml = (orderDetails) => {
   return products.map(product => `
     <div class="product-card">
       <div class="product-name">${product.name || 'Product'}</div>
-      <div class="product-details" style="margin-top: 8px;">
-        <span>Quantity: ${product.quantity || 1}</span>
-        <span>₹${product.price || 0}</span>
+      <div class="product-details" style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 500;">Quantity: ${product.quantity || 1}</span>
+        <span style="font-weight: 600; color: #1F2937;">₹${product.price || 0}</span>
       </div>
     </div>
   `).join('');
