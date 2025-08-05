@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const { sendOrderStatusUpdateEmail } = require('../services/emailService');
 const Counter = require('../models/Counter');
 
 const router = express.Router();
@@ -294,10 +295,66 @@ router.put('/:id/status', authenticateToken, async (req, res) => {
 
     console.log('✅ Order status updated successfully:', formattedOrder.status);
 
-    res.json({
-      success: true,
-      order: formattedOrder
-    });
+    // Send email notification
+    try {
+      // Get user email
+      const user = await User.findById(order.user_id);
+      if (user && user.email) {
+        const statusLabel = mappedStatus.replace('order_', 'Order ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        console.log('📧 Sending email notification:', {
+          userEmail: user.email,
+          orderNumber: order.order_number,
+          statusLabel,
+          orderDetails: order
+        });
+        
+        const emailResult = await sendOrderStatusUpdateEmail(
+          user.email,
+          order.order_number,
+          statusLabel,
+          order
+        );
+        
+        console.log('📧 Email sent successfully:', emailResult.messageId);
+        
+        res.json({
+          success: true,
+          order: formattedOrder,
+          notification: {
+            emailSent: true,
+            emailMessageId: emailResult.messageId
+          },
+          debug: {
+            message: '✅ Email sent successfully!',
+            userEmail: user.email,
+            orderNumber: order.order_number,
+            statusLabel: statusLabel,
+            emailResult: emailResult
+          }
+        });
+      } else {
+        console.log('❌ User not found or no email:', order.user_id);
+        res.json({
+          success: true,
+          order: formattedOrder,
+          notification: {
+            emailSent: false,
+            error: 'User not found or no email'
+          }
+        });
+      }
+    } catch (emailError) {
+      console.error('❌ Email notification failed:', emailError);
+      res.json({
+        success: true,
+        order: formattedOrder,
+        notification: {
+          emailSent: false,
+          error: emailError.message
+        }
+      });
+    }
   } catch (error) {
     console.error('❌ Update order status error:', error);
     res.status(500).json({
