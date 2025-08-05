@@ -173,7 +173,7 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
             <div class="contact-info">
                 <p style="margin-bottom: 15px; color: #6B7280;">Need Help?</p>
                 <a href="mailto:support@pulasa.com" class="contact-link">📧 Email Support</a>
-                <a href="tel:+919035151944" class="contact-link">📞 Call Us</a>
+                <a href="tel:+919035151944" class="contact-link" style="text-decoration: none; cursor: pointer;">📞 Call Us (+91 90351 51944)</a>
             </div>
 
             <p style="text-align: center; color: #6B7280; margin-top: 20px;">
