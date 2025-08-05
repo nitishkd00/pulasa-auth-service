@@ -11,7 +11,7 @@ const sesClient = new SESClient({
 /**
  * Send email using Amazon SES
  */
-const sendEmail = async (to, subject, body) => {
+const sendEmail = async (to, subject, body, htmlBody = null) => {
   const emailParams = {
     Source: "noreply@pulasa.com", // your verified SES email
     Destination: {
@@ -20,13 +20,16 @@ const sendEmail = async (to, subject, body) => {
     Message: {
       Subject: {
         Data: subject,
+        Charset: 'UTF-8'
       },
       Body: {
         Text: {
           Data: body,
+          Charset: 'UTF-8'
         },
         Html: {
-          Data: body.replace(/\n/g, '<br>'), // Convert newlines to HTML breaks
+          Data: htmlBody || body.replace(/\n/g, '<br>'), // Use HTML body if provided
+          Charset: 'UTF-8'
         },
       },
     },
@@ -43,10 +46,184 @@ const sendEmail = async (to, subject, body) => {
 };
 
 /**
+ * Create modern HTML email template
+ */
+const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
+  const logoUrl = 'https://res.cloudinary.com/ddw4avyim/image/upload/v1752650318/WhatsApp_Image_2025-07-16_at_12.47.22_PM_1_eab8kb.jpg';
+  const currentDate = new Date().toLocaleString('en-IN', { 
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const statusColor = {
+    'Order Raised': '#3B82F6',
+    'Order Confirmed': '#10B981',
+    'Order Packed': '#F59E0B',
+    'Order Shipped': '#8B5CF6',
+    'Order Delivered': '#059669',
+    'Order Cancelled': '#EF4444'
+  };
+
+  const statusBgColor = {
+    'Order Raised': '#DBEAFE',
+    'Order Confirmed': '#D1FAE5',
+    'Order Packed': '#FEF3C7',
+    'Order Shipped': '#EDE9FE',
+    'Order Delivered': '#D1FAE5',
+    'Order Cancelled': '#FEE2E2'
+  };
+
+  const color = statusColor[statusLabel] || '#3B82F6';
+  const bgColor = statusBgColor[statusLabel] || '#DBEAFE';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Status Update</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px; text-align: center; }
+        .logo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; filter: brightness(0) invert(1); margin-bottom: 15px; }
+        .header h1 { color: white; font-size: 24px; font-weight: 600; margin-bottom: 5px; }
+        .header p { color: rgba(255,255,255,0.9); font-size: 16px; }
+        .content { padding: 30px 20px; }
+        .status-card { background: ${bgColor}; border-left: 4px solid ${color}; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
+        .status-badge { display: inline-block; background: ${color}; color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+        .status-title { font-size: 20px; font-weight: 600; color: #1F2937; margin-bottom: 8px; }
+        .status-message { color: #6B7280; font-size: 16px; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 18px; font-weight: 600; color: #1F2937; margin-bottom: 15px; display: flex; align-items: center; }
+        .section-title::before { content: "📋"; margin-right: 8px; }
+        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #E5E7EB; }
+        .detail-label { font-weight: 500; color: #6B7280; }
+        .detail-value { font-weight: 600; color: #1F2937; }
+        .product-card { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
+        .product-name { font-weight: 600; color: #1F2937; margin-bottom: 5px; }
+        .product-details { display: flex; justify-content: space-between; color: #6B7280; font-size: 14px; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+        .divider { height: 1px; background: #E5E7EB; margin: 30px 0; }
+        .contact-info { text-align: center; margin: 20px 0; }
+        .contact-link { color: #667eea; text-decoration: none; margin: 0 15px; }
+        .footer { background: #1F2937; color: white; padding: 20px; text-align: center; font-size: 14px; }
+        .footer a { color: #9CA3AF; text-decoration: none; }
+        @media (max-width: 600px) {
+            .container { margin: 0; }
+            .content { padding: 20px 15px; }
+            .header { padding: 20px 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <img src="${logoUrl}" alt="Pulasa Logo" class="logo">
+            <h1>Order Status Update</h1>
+            <p>Stay updated with your order progress</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Status Card -->
+            <div class="status-card">
+                <div class="status-badge">${statusLabel}</div>
+                <div class="status-title">🎉 Great News!</div>
+                <div class="status-message">${getStatusSpecificMessage(statusLabel)}</div>
+            </div>
+
+            <!-- Order Details -->
+            <div class="section">
+                <div class="section-title">Order Details</div>
+                <div class="detail-row">
+                    <span class="detail-label">Order Number:</span>
+                    <span class="detail-value">${orderNumber}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Updated On:</span>
+                    <span class="detail-value">${currentDate}</span>
+                </div>
+            </div>
+
+            <!-- Products -->
+            <div class="section">
+                <div class="section-title" style="content: '🛒';">Your Order</div>
+                ${formatOrderDetailsHtml(orderDetails)}
+            </div>
+
+            <!-- CTA -->
+            <div style="text-align: center;">
+                <a href="https://pulasa.com" class="cta-button">📱 Track Your Order</a>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Contact Info -->
+            <div class="contact-info">
+                <p style="margin-bottom: 15px; color: #6B7280;">Need Help?</p>
+                <a href="mailto:support@pulasa.com" class="contact-link">📧 Email Support</a>
+                <a href="tel:+919876543210" class="contact-link">📞 Call Us</a>
+            </div>
+
+            <p style="text-align: center; color: #6B7280; margin-top: 20px;">
+                Thank you for choosing Pulasa! 🐠
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Track your order at <a href="https://pulasa.com">pulasa.com</a></p>
+            <p>© 2025 Pulasa. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};
+
+/**
+ * Format order details for HTML
+ */
+const formatOrderDetailsHtml = (orderDetails) => {
+  if (!orderDetails || !orderDetails.products) return '<p>No product details available</p>';
+  
+  let products = orderDetails.products;
+  if (typeof products === 'string') {
+    try {
+      products = JSON.parse(products);
+    } catch (error) {
+      return '<p>Error parsing product details</p>';
+    }
+  }
+
+  if (!Array.isArray(products)) {
+    products = [products];
+  }
+
+  return products.map(product => `
+    <div class="product-card">
+      <div class="product-name">${product.name || 'Product'}</div>
+      <div class="product-details">
+        <span>Quantity: ${product.quantity || 1}</span>
+        <span>₹${product.price || 0}</span>
+      </div>
+    </div>
+  `).join('');
+};
+
+/**
  * Send order status update email
  */
 const sendOrderStatusUpdateEmail = async (userEmail, orderNumber, statusLabel, orderDetails) => {
-  const subject = `📦 Order Status Update - Order #${orderNumber}`;
+  const subject = `🐠 Pulasa Fish Order [#${orderNumber}] - ${statusLabel}`;
   
   const body = `
 Dear Valued Customer,
@@ -64,7 +241,7 @@ Order Summary:
 ${formatOrderDetails(orderDetails)}
 
 Track Your Order:
-You can track your order status anytime by logging into your Pulasa account.
+You can track your order status anytime by logging into your Pulasa account at pulasa.com.
 
 Need Help?
 If you have any questions about your order, please contact our customer support.
@@ -79,8 +256,10 @@ noreply@pulasa.com
 This is an automated message. Please do not reply to this email.
   `.trim();
 
+  const htmlBody = createHtmlEmail('Customer', orderNumber, statusLabel, orderDetails);
+
   try {
-    return await sendEmail(userEmail, subject, body);
+    return await sendEmail(userEmail, subject, body, htmlBody);
   } catch (error) {
     console.error('❌ Failed to send order status update email:', error);
     throw error;
@@ -135,5 +314,7 @@ const formatOrderDetails = (orderDetails) => {
 
 module.exports = {
   sendEmail,
-  sendOrderStatusUpdateEmail
+  sendOrderStatusUpdateEmail,
+  createHtmlEmail,
+  formatOrderDetailsHtml
 }; 
