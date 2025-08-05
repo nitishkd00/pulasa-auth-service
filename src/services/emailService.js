@@ -49,7 +49,8 @@ const sendEmail = async (to, subject, body, htmlBody = null) => {
  * Create modern HTML email template
  */
 const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
-  const logoUrl = 'https://res.cloudinary.com/ddw4avyim/image/upload/v1752650318/WhatsApp_Image_2025-07-16_at_12.47.22_PM_1_eab8kb.jpg';
+  // Use a simple text-based logo instead of external image to avoid blocking
+  const logoText = '🐠 PULASA';
   const currentDate = new Date().toLocaleString('en-IN', { 
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -59,26 +60,27 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
     minute: '2-digit'
   });
 
+  // Pulasa brand colors (matching your app)
   const statusColor = {
-    'Order Raised': '#3B82F6',
-    'Order Confirmed': '#10B981',
-    'Order Packed': '#F59E0B',
-    'Order Shipped': '#8B5CF6',
-    'Order Delivered': '#059669',
-    'Order Cancelled': '#EF4444'
+    'Order Raised': '#1e40af',      // Blue-800
+    'Order Confirmed': '#059669',   // Emerald-600
+    'Order Packed': '#d97706',      // Amber-600
+    'Order Shipped': '#7c3aed',     // Violet-600
+    'Order Delivered': '#047857',   // Emerald-700
+    'Order Cancelled': '#dc2626'    // Red-600
   };
 
   const statusBgColor = {
-    'Order Raised': '#DBEAFE',
-    'Order Confirmed': '#D1FAE5',
-    'Order Packed': '#FEF3C7',
-    'Order Shipped': '#EDE9FE',
-    'Order Delivered': '#D1FAE5',
-    'Order Cancelled': '#FEE2E2'
+    'Order Raised': '#dbeafe',      // Blue-100
+    'Order Confirmed': '#d1fae5',   // Emerald-100
+    'Order Packed': '#fef3c7',      // Amber-100
+    'Order Shipped': '#ede9fe',     // Violet-100
+    'Order Delivered': '#d1fae5',   // Emerald-100
+    'Order Cancelled': '#fee2e2'    // Red-100
   };
 
-  const color = statusColor[statusLabel] || '#3B82F6';
-  const bgColor = statusBgColor[statusLabel] || '#DBEAFE';
+  const color = statusColor[statusLabel] || '#1e40af';
+  const bgColor = statusBgColor[statusLabel] || '#dbeafe';
 
   return `
 <!DOCTYPE html>
@@ -91,8 +93,8 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px; text-align: center; }
-        .logo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; filter: brightness(0) invert(1); margin-bottom: 15px; }
+        .header { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px 20px; text-align: center; }
+        .logo-text { font-size: 32px; font-weight: bold; color: white; margin-bottom: 15px; }
         .header h1 { color: white; font-size: 24px; font-weight: 600; margin-bottom: 5px; }
         .header p { color: rgba(255,255,255,0.9); font-size: 16px; }
         .content { padding: 30px 20px; }
@@ -109,10 +111,10 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
         .product-card { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
         .product-name { font-weight: 600; color: #1F2937; margin-bottom: 5px; }
         .product-details { display: flex; justify-content: space-between; color: #6B7280; font-size: 14px; }
-        .cta-button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
         .divider { height: 1px; background: #E5E7EB; margin: 30px 0; }
         .contact-info { text-align: center; margin: 20px 0; }
-        .contact-link { color: #667eea; text-decoration: none; margin: 0 15px; }
+        .contact-link { color: #1e40af; text-decoration: none; margin: 0 15px; }
         .footer { background: #1F2937; color: white; padding: 20px; text-align: center; font-size: 14px; }
         .footer a { color: #9CA3AF; text-decoration: none; }
         @media (max-width: 600px) {
@@ -126,7 +128,7 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <img src="${logoUrl}" alt="Pulasa Logo" class="logo">
+            <div class="logo-text">${logoText}</div>
             <h1>Order Status Update</h1>
             <p>Stay updated with your order progress</p>
         </div>
@@ -161,7 +163,7 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
 
             <!-- CTA -->
             <div style="text-align: center;">
-                <a href="https://pulasa.com" class="cta-button">📱 Track Your Order</a>
+                <a href="https://pulasa.com" class="cta-button">Track Your Order</a>
             </div>
 
             <div class="divider"></div>
@@ -170,7 +172,7 @@ const createHtmlEmail = (userName, orderNumber, statusLabel, orderDetails) => {
             <div class="contact-info">
                 <p style="margin-bottom: 15px; color: #6B7280;">Need Help?</p>
                 <a href="mailto:support@pulasa.com" class="contact-link">📧 Email Support</a>
-                <a href="tel:+919876543210" class="contact-link">📞 Call Us</a>
+                <a href="tel:+919035151944" class="contact-link">📞 Call Us</a>
             </div>
 
             <p style="text-align: center; color: #6B7280; margin-top: 20px;">
@@ -211,7 +213,7 @@ const formatOrderDetailsHtml = (orderDetails) => {
   return products.map(product => `
     <div class="product-card">
       <div class="product-name">${product.name || 'Product'}</div>
-      <div class="product-details">
+      <div class="product-details" style="margin-top: 8px;">
         <span>Quantity: ${product.quantity || 1}</span>
         <span>₹${product.price || 0}</span>
       </div>
