@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const orderSchema = new mongoose.Schema({
   user_id: { type: String, required: true },
   amount: { type: Number, required: true },
+  token_amount: { type: Number, default: 0 }, // Token advance amount
   order_number: { type: String, required: true, unique: true },
   products: [{ 
     product_id: { type: String },

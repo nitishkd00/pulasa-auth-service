@@ -371,24 +371,18 @@ router.post('/create-razorpay-order', authenticateToken, async (req, res) => {
     console.log('🔧 Creating Razorpay order with data:', req.body);
 
     const {
-      amount,
       currency = 'INR',
       user_id
     } = req.body;
 
-    // Validate required fields
-    if (!amount || amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Valid amount is required'
-      });
-    }
+    // Fixed amount: ₹500 token advance
+    const tokenAmount = 500;
 
     // Generate receipt ID
     const receiptId = `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const orderData = {
-      amount: amount,
+      amount: tokenAmount,
       currency: currency,
       receipt: receiptId,
       user_id: user_id || req.user.id
@@ -499,7 +493,8 @@ router.post('/verify-payment', authenticateToken, async (req, res) => {
 
       const order = new Order({
         user_id: req.user.id,
-        amount,
+        amount: amount, // Full order amount
+        token_amount: 500, // Token advance paid
         order_number: orderNumber,
         products,
         address,
@@ -511,7 +506,8 @@ router.post('/verify-payment', authenticateToken, async (req, res) => {
         zip,
         razorpay_order_id,
         razorpay_payment_id,
-        status: 'order_confirmed' // Payment successful, order confirmed
+        payment_method: 'razorpay',
+        status: 'order_raised' // Token advance paid, waiting for admin review
       });
 
       await order.save();
