@@ -18,7 +18,11 @@ const orderSchema = new mongoose.Schema({
   state: { type: String },
   zip: { type: String },
   status: { type: String, default: 'order_raised' },
-  upi_reference: { type: String }
+  upi_reference: { type: String },
+  // Razorpay fields
+  razorpay_order_id: { type: String },
+  razorpay_payment_id: { type: String },
+  payment_method: { type: String, default: 'upi' }, // 'upi' or 'razorpay'
   // Removed supabase_id and other unnecessary fields since we're only using MongoDB
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }

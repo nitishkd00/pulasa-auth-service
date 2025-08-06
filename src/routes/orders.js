@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const { sendOrderStatusUpdateEmail } = require('../services/emailService');
 const Counter = require('../models/Counter');
+const { createRazorpayOrder, verifyPaymentSignature, getPaymentDetails } = require('../services/razorpay');
 
 const router = express.Router();
 
@@ -346,17 +347,190 @@ router.put('/:id/status', authenticateToken, async (req, res) => {
       }
     } catch (emailError) {
       console.error('❌ Email notification failed:', emailError);
-      res.json({
-        success: true,
+    res.json({
+      success: true,
         order: formattedOrder,
         notification: {
           emailSent: false,
           error: emailError.message
         }
-      });
+    });
     }
   } catch (error) {
     console.error('❌ Update order status error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Create Razorpay order
+router.post('/create-razorpay-order', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔧 Creating Razorpay order with data:', req.body);
+
+    const {
+      amount,
+      currency = 'INR',
+      user_id
+    } = req.body;
+
+    // Validate required fields
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid amount is required'
+      });
+    }
+
+    // Generate receipt ID
+    const receiptId = `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const orderData = {
+      amount: amount,
+      currency: currency,
+      receipt: receiptId,
+      user_id: user_id || req.user.id
+    };
+
+    const result = await createRazorpayOrder(orderData);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        order: result.order,
+        key_id: process.env.RAZORPAY_KEY_ID
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('❌ Create Razorpay order error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Verify Razorpay payment
+router.post('/verify-payment', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔧 Verifying Razorpay payment:', req.body);
+
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      orderData
+    } = req.body;
+
+    // Validate required fields
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment verification parameters are required'
+      });
+    }
+
+    // Verify payment signature
+    const isSignatureValid = verifyPaymentSignature(
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    );
+
+    if (!isSignatureValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid payment signature'
+      });
+    }
+
+    // Get payment details from Razorpay
+    const paymentDetails = await getPaymentDetails(razorpay_payment_id);
+
+    if (!paymentDetails.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch payment details'
+      });
+    }
+
+    // Check if payment is successful
+    if (paymentDetails.payment.status !== 'captured') {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment not completed'
+      });
+    }
+
+    // Create order in database
+    if (orderData) {
+      const {
+        amount,
+        products,
+        address,
+        first_name,
+        last_name,
+        phone,
+        city,
+        state,
+        zip
+      } = orderData;
+
+      // Generate order number
+      let orderNumber;
+      try {
+        const counter = await Counter.findByIdAndUpdate(
+          'orderNumber',
+          { $inc: { seq: 1 } },
+          { new: true, upsert: true }
+        );
+        orderNumber = `P${String(counter.seq).padStart(6, '0')}`;
+      } catch (error) {
+        const orderCount = await Order.countDocuments();
+        orderNumber = `P${String(orderCount + 1).padStart(6, '0')}`;
+      }
+
+      const order = new Order({
+        user_id: req.user.id,
+        amount,
+        order_number: orderNumber,
+        products,
+        address,
+        first_name,
+        last_name,
+        phone,
+        city,
+        state,
+        zip,
+        razorpay_order_id,
+        razorpay_payment_id,
+        status: 'order_confirmed' // Payment successful, order confirmed
+      });
+
+      await order.save();
+
+      res.json({
+        success: true,
+        order: order,
+        payment: paymentDetails.payment,
+        message: 'Payment verified and order created successfully'
+      });
+    } else {
+      res.json({
+        success: true,
+        payment: paymentDetails.payment,
+        message: 'Payment verified successfully'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Verify payment error:', error);
     res.status(500).json({
       success: false,
       error: error.message
