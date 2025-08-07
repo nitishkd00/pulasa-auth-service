@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { authenticateToken } = require('../middleware/auth');
 const databaseBridge = require('../services/DatabaseBridge');
+const OtpVerification = require('../models/OtpVerification');
+const { sendOtpEmail } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -105,6 +107,19 @@ router.post('/register', [
       });
     }
 
+    // Generate OTP for email verification
+    const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Remove any previous OTPs for this email
+    await OtpVerification.deleteMany({ email });
+    
+    // Store OTP
+    await OtpVerification.create({ email, otp, expiresAt, verified: false });
+    
+    // Send OTP email
+    await sendOtpEmail(email, otp);
+
     // Generate JWT token
     const token = jwt.sign(
       {
@@ -116,17 +131,18 @@ router.post('/register', [
       { expiresIn: '24h' }
     );
 
-    console.log(`✅ Registration successful for: ${email}`);
+    console.log(`✅ Registration successful for: ${email} (OTP sent)`);
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
+      message: 'Registration successful. Please verify your email with the OTP sent.',
       user: result.user,
       tokens: {
         jwtToken: token,
         tokenType: 'Bearer',
         expiresIn: '24h'
-      }
+      },
+      otpRequired: true
     });
 
   } catch (error) {
@@ -245,6 +261,110 @@ router.post('/logout', (req, res) => {
     success: true,
     message: 'Logout successful'
   });
+});
+
+// Resend OTP endpoint
+router.post('/resend-otp', [
+  body('email').isEmail().normalizeEmail(),
+  validateRequest
+], async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log(`📧 Resend OTP request for: ${email}`);
+
+    // Check if user exists
+    const user = await databaseBridge.getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Generate new OTP
+    const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Remove any previous OTPs for this email
+    await OtpVerification.deleteMany({ email });
+    
+    // Store new OTP
+    await OtpVerification.create({ email, otp, expiresAt, verified: false });
+    
+    // Send OTP email
+    await sendOtpEmail(email, otp);
+
+    console.log(`✅ OTP resent successfully for: ${email}`);
+
+    res.json({
+      success: true,
+      message: 'OTP resent successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Resend OTP error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to resend OTP'
+    });
+  }
+});
+
+// Verify OTP endpoint
+router.post('/verify-otp', [
+  body('email').isEmail().normalizeEmail(),
+  body('otp').isLength({ min: 6, max: 6 }),
+  validateRequest
+], async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    console.log(`🔐 OTP verification request for: ${email}`);
+
+    // Find OTP record
+    const otpRecord = await OtpVerification.findOne({ 
+      email, 
+      otp, 
+      verified: false 
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid OTP' 
+      });
+    }
+
+    // Check if OTP is expired
+    if (otpRecord.expiresAt < new Date()) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'OTP expired' 
+      });
+    }
+
+    // Mark OTP as used
+    otpRecord.verified = true;
+    await otpRecord.save();
+
+    // Update user verification status
+    await databaseBridge.updateUserByEmail(email, { is_verified: true });
+
+    console.log(`✅ OTP verified successfully for: ${email}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Email verified successfully' 
+    });
+
+  } catch (error) {
+    console.error('❌ OTP verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
 });
 
 // Get user by ID endpoint (for admin use)
