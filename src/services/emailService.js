@@ -317,9 +317,26 @@ const formatOrderDetails = (orderDetails) => {
   return productsText || '• Order details not available';
 };
 
+/**
+ * Send OTP email for verification
+ */
+const sendOtpEmail = async (to, otp) => {
+  const subject = 'Pulasa Email Verification - Your OTP Code';
+  const body = `Your OTP code for Pulasa email verification is: ${otp}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.`;
+  const htmlBody = `<p>Your OTP code for Pulasa email verification is: <b>${otp}</b></p><p>This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>`;
+
+  try {
+    return await sendEmail(to, subject, body, htmlBody);
+  } catch (error) {
+    console.error('❌ Failed to send OTP email:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendOrderStatusUpdateEmail,
+  sendOtpEmail,
   createHtmlEmail,
   formatOrderDetailsHtml
 }; 
