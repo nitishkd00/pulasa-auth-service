@@ -14,7 +14,10 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Google OAuth client
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET
+);
 
 // Validation middleware
 const validateRequest = (req, res, next) => {
