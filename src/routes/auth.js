@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { OAuth2Client } = require('google-auth-library');
 const { authenticateToken } = require('../middleware/auth');
 const databaseBridge = require('../services/DatabaseBridge');
 const OtpVerification = require('../models/OtpVerification');
@@ -11,6 +12,9 @@ const router = express.Router();
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Validation middleware
 const validateRequest = (req, res, next) => {
@@ -452,6 +456,142 @@ router.options('*', (req, res) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.status(200).end();
+});
+
+// Google OAuth endpoint
+router.post('/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Google ID token is required'
+      });
+    }
+
+    console.log('🔐 Google OAuth attempt');
+
+    // Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, picture, sub: googleId } = payload;
+
+    console.log(`📧 Google OAuth for email: ${email}`);
+
+    // Check if user already exists
+    const existingUser = await databaseBridge.getUserByEmail(email);
+
+    if (existingUser) {
+      // User exists - log them in
+      console.log(`✅ Existing user found: ${email}`);
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          userId: existingUser.id,
+          email: existingUser.email,
+          isAdmin: existingUser.is_admin
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        success: true,
+        message: 'Google login successful',
+        user: existingUser,
+        tokens: {
+          jwtToken: token,
+          tokenType: 'Bearer',
+          expiresIn: '24h'
+        },
+        source: 'google-oauth'
+      });
+    } else {
+      // User doesn't exist - create new user
+      console.log(`📝 Creating new user from Google OAuth: ${email}`);
+
+      const newUser = await databaseBridge.createUser({
+        email,
+        name,
+        google_id: googleId,
+        is_verified: true // Google users are pre-verified
+      });
+
+      if (!newUser.success) {
+        return res.status(400).json({
+          success: false,
+          error: newUser.error || 'Failed to create user'
+        });
+      }
+
+      // Generate JWT token for new user
+      const token = jwt.sign(
+        {
+          userId: newUser.user.id,
+          email: newUser.user.email,
+          isAdmin: newUser.user.is_admin
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      console.log(`✅ New user created via Google OAuth: ${email}`);
+
+      res.json({
+        success: true,
+        message: 'Google signup successful',
+        user: newUser.user,
+        tokens: {
+          jwtToken: token,
+          tokenType: 'Bearer',
+          expiresIn: '24h'
+        },
+        source: 'google-oauth'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Google OAuth error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Google authentication failed'
+    });
+  }
+});
+
+// Check if user exists endpoint (for Google OAuth)
+router.get('/check-user/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    const user = await databaseBridge.getUserByEmail(email);
+
+    res.json({
+      success: true,
+      exists: !!user,
+      user: user || null
+    });
+
+  } catch (error) {
+    console.error('❌ Check user error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
 });
 
 module.exports = router;

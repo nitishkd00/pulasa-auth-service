@@ -28,6 +28,16 @@ class DatabaseBridge {
         return { success: false, error: 'User not found' };
       }
 
+      // Check if user is a Google OAuth user
+      if (user.auth_provider === 'google') {
+        return { success: false, error: 'This account was created with Google. Please use Google sign-in.' };
+      }
+
+      // For local users, validate password
+      if (!user.password_hash) {
+        return { success: false, error: 'Invalid password' };
+      }
+
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
       
       if (!isValidPassword) {
@@ -47,7 +57,7 @@ class DatabaseBridge {
   // Create new user in MongoDB
   async createUser(userData) {
     try {
-      const { email, password, name, phone, address } = userData;
+      const { email, password, name, phone, address, google_id, is_verified = false } = userData;
       
       // Check if user already exists
       const existingUser = await User.findOne({ email });
@@ -55,22 +65,33 @@ class DatabaseBridge {
         throw new Error('User already exists');
       }
 
-      // Hash password
-      const saltRounds = 10;
-      const passwordHash = await bcrypt.hash(password, saltRounds);
-
-      // Create new user
-      const user = new User({
+      // Prepare user data
+      const userDataToSave = {
         email,
-        password_hash: passwordHash,
         name,
         phone,
         address,
         is_admin: false,
         wallet_balance: 0.00,
-        locked_amount: 0.00
-      });
+        locked_amount: 0.00,
+        is_verified,
+        auth_provider: google_id ? 'google' : 'local'
+      };
 
+      // Add password hash only for local users
+      if (password) {
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        userDataToSave.password_hash = passwordHash;
+      }
+
+      // Add Google ID if provided
+      if (google_id) {
+        userDataToSave.google_id = google_id;
+      }
+
+      // Create new user
+      const user = new User(userDataToSave);
       await user.save();
 
       return { 
