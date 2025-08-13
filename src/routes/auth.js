@@ -91,6 +91,7 @@ router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   body('name').isLength({ min: 1 }),
+  body('phone').isLength({ min: 10, max: 13 }).matches(/^(\+91[6-9]\d{9}|[6-9]\d{9})$/, 'i').withMessage('Please provide a valid Indian mobile number'),
   validateRequest
 ], async (req, res) => {
   try {

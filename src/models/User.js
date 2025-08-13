@@ -4,7 +4,17 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password_hash: { type: String }, // Made optional for Google OAuth users
   name: { type: String, required: true },
-  phone: { type: String },
+  phone: { 
+    type: String, 
+    required: true,
+    validate: {
+      validator: function(v) {
+        // Indian mobile number validation: +91 followed by 10 digits, or 10 digits starting with 6-9
+        return /^(\+91[6-9]\d{9}|[6-9]\d{9})$/.test(v);
+      },
+      message: props => `${props.value} is not a valid Indian mobile number!`
+    }
+  },
   address: { type: String },
   is_admin: { type: Boolean, default: false },
   wallet_balance: { type: Number, default: 0.00 },
