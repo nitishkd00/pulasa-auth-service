@@ -465,34 +465,33 @@ router.options('*', (req, res) => {
 // Google OAuth endpoint
 router.post('/google', async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { googleUserId, email, name } = req.body;
 
-    if (!idToken) {
+    if (!googleUserId) {
       return res.status(400).json({
         success: false,
-        error: 'Google ID token is required'
+        error: 'Google user ID is required'
       });
     }
 
-    console.log('🔐 Google OAuth attempt');
+    console.log('🔐 Google OAuth attempt with user ID:', googleUserId);
 
-    // Verify the Google ID token
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
+    // Check if user with this Google ID exists
+    let existingUser = await databaseBridge.getUserByGoogleId(googleUserId);
 
-    const payload = ticket.getPayload();
-    const { email, name, picture, sub: googleId } = payload;
-
-    console.log(`📧 Google OAuth for email: ${email}`);
-
-    // Check if user already exists
-    const existingUser = await databaseBridge.getUserByEmail(email);
+    if (!existingUser && email) {
+      // Also check by email in case user exists but doesn't have google_id set
+      existingUser = await databaseBridge.getUserByEmail(email);
+      
+      if (existingUser) {
+        // Update existing user to add Google ID
+        await databaseBridge.updateUser(existingUser.id, { google_id: googleUserId });
+      }
+    }
 
     if (existingUser) {
       // User exists - log them in
-      console.log(`✅ Existing user found: ${email}`);
+      console.log(`✅ Existing user found with Google ID: ${googleUserId}`);
 
       // Generate JWT token
       const token = jwt.sign(
@@ -516,14 +515,14 @@ router.post('/google', async (req, res) => {
         },
         source: 'google-oauth'
       });
-    } else {
-      // User doesn't exist - create new user
+    } else if (email && name) {
+      // Create new user with Google OAuth data
       console.log(`📝 Creating new user from Google OAuth: ${email}`);
 
       const newUser = await databaseBridge.createUser({
         email,
         name,
-        google_id: googleId,
+        google_id: googleUserId,
         is_verified: true // Google users are pre-verified
       });
 
@@ -557,6 +556,13 @@ router.post('/google', async (req, res) => {
           expiresIn: '24h'
         },
         source: 'google-oauth'
+      });
+    } else {
+      // User doesn't exist and we don't have enough info to create them
+      return res.status(400).json({
+        success: false,
+        error: 'User not found. Please provide email and name for new user creation.',
+        requiresAdditionalInfo: true
       });
     }
 

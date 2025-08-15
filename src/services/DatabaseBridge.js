@@ -152,6 +152,17 @@ class DatabaseBridge {
     }
   }
 
+  // Get user by Google ID
+  async getUserByGoogleId(googleId) {
+    try {
+      const user = await User.findOne({ google_id: googleId });
+      return user ? user.toUnifiedUser() : null;
+    } catch (error) {
+      console.error('Get user by Google ID error:', error);
+      return null;
+    }
+  }
+
   // Update user by email
   async updateUserByEmail(email, updateData) {
     try {
