@@ -560,7 +560,9 @@ router.post('/google', async (req, res) => {
           email,
           name,
           google_id: googleId,
-          is_verified: true // Google users are pre-verified
+          is_verified: true, // Google users are pre-verified
+          phone: '0000000000', // Default phone for Google users (required field)
+          password: Math.random().toString(36).slice(-10) // Generate random password for Google users
         });
 
         console.log('🔍 [DEBUG] User creation result:', newUser);
@@ -661,7 +663,9 @@ router.post('/google', async (req, res) => {
             email,
             name,
             google_id: googleId,
-            is_verified: true // Google users are pre-verified
+            is_verified: true, // Google users are pre-verified
+            phone: '0000000000', // Default phone for Google users (required field)
+            password: Math.random().toString(36).slice(-10) // Generate random password for Google users
           });
 
           if (!newUser.success) {
