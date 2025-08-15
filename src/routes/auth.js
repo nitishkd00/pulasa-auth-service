@@ -465,105 +465,204 @@ router.options('*', (req, res) => {
 // Google OAuth endpoint
 router.post('/google', async (req, res) => {
   try {
-    const { googleUserId, email, name } = req.body;
+    const { idToken } = req.body;
 
-    if (!googleUserId) {
+    if (!idToken) {
       return res.status(400).json({
         success: false,
-        error: 'Google user ID is required'
+        error: 'Google ID token is required'
       });
     }
 
-    console.log('🔐 Google OAuth attempt with user ID:', googleUserId);
+    console.log('🔐 Google OAuth attempt with ID token');
 
-    // Check if user with this Google ID exists
-    let existingUser = await databaseBridge.getUserByGoogleId(googleUserId);
+    try {
+      // Verify the Google ID token
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID
+      });
 
-    if (!existingUser && email) {
-      // Also check by email in case user exists but doesn't have google_id set
-      existingUser = await databaseBridge.getUserByEmail(email);
-      
+      const payload = ticket.getPayload();
+      const { email, name, picture, sub: googleId } = payload;
+
+      console.log(`📧 Google OAuth for email: ${email}`);
+
+      // Check if user already exists
+      const existingUser = await databaseBridge.getUserByEmail(email);
+
       if (existingUser) {
-        // Update existing user to add Google ID
-        await databaseBridge.updateUser(existingUser.id, { google_id: googleUserId });
-      }
-    }
+        // User exists - log them in
+        console.log(`✅ Existing user found: ${email}`);
 
-    if (existingUser) {
-      // User exists - log them in
-      console.log(`✅ Existing user found with Google ID: ${googleUserId}`);
+        // Generate JWT token
+        const token = jwt.sign(
+          {
+            userId: existingUser.id,
+            email: existingUser.email,
+            isAdmin: existingUser.is_admin
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
 
-      // Generate JWT token
-      const token = jwt.sign(
-        {
-          userId: existingUser.id,
-          email: existingUser.email,
-          isAdmin: existingUser.is_admin
-        },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+        res.json({
+          success: true,
+          message: 'Google login successful',
+          user: existingUser,
+          tokens: {
+            jwtToken: token,
+            tokenType: 'Bearer',
+            expiresIn: '24h'
+          },
+          source: 'google-oauth'
+        });
+      } else {
+        // User doesn't exist - create new user
+        console.log(`📝 Creating new user from Google OAuth: ${email}`);
 
-      res.json({
-        success: true,
-        message: 'Google login successful',
-        user: existingUser,
-        tokens: {
-          jwtToken: token,
-          tokenType: 'Bearer',
-          expiresIn: '24h'
-        },
-        source: 'google-oauth'
-      });
-    } else if (email && name) {
-      // Create new user with Google OAuth data
-      console.log(`📝 Creating new user from Google OAuth: ${email}`);
+        const newUser = await databaseBridge.createUser({
+          email,
+          name,
+          google_id: googleId,
+          is_verified: true // Google users are pre-verified
+        });
 
-      const newUser = await databaseBridge.createUser({
-        email,
-        name,
-        google_id: googleUserId,
-        is_verified: true // Google users are pre-verified
-      });
+        if (!newUser.success) {
+          return res.status(400).json({
+            success: false,
+            error: newUser.error || 'Failed to create user'
+          });
+        }
 
-      if (!newUser.success) {
-        return res.status(400).json({
-          success: false,
-          error: newUser.error || 'Failed to create user'
+        // Generate JWT token for new user
+        const token = jwt.sign(
+          {
+            userId: newUser.user.id,
+            email: newUser.user.email,
+            isAdmin: newUser.user.is_admin
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+
+        console.log(`✅ New user created via Google OAuth: ${email}`);
+
+        res.json({
+          success: true,
+          message: 'Google signup successful',
+          user: newUser.user,
+          tokens: {
+            jwtToken: token,
+            tokenType: 'Bearer',
+            expiresIn: '24h'
+          },
+          source: 'google-oauth'
         });
       }
 
-      // Generate JWT token for new user
-      const token = jwt.sign(
-        {
-          userId: newUser.user.id,
-          email: newUser.user.email,
-          isAdmin: newUser.user.is_admin
-        },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+    } catch (googleError) {
+      console.error('❌ Google token verification failed:', googleError);
+      
+      // If Google verification fails, try to handle it as an access token
+      // This is a fallback for when the frontend sends access_token instead of id_token
+      try {
+        // Get user info from Google using the token as access token
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
 
-      console.log(`✅ New user created via Google OAuth: ${email}`);
+        if (!userInfoResponse.ok) {
+          throw new Error('Failed to get user info from Google');
+        }
 
-      res.json({
-        success: true,
-        message: 'Google signup successful',
-        user: newUser.user,
-        tokens: {
-          jwtToken: token,
-          tokenType: 'Bearer',
-          expiresIn: '24h'
-        },
-        source: 'google-oauth'
-      });
-    } else {
-      // User doesn't exist and we don't have enough info to create them
-      return res.status(400).json({
-        success: false,
-        error: 'User not found. Please provide email and name for new user creation.',
-        requiresAdditionalInfo: true
-      });
+        const userInfo = await userInfoResponse.json();
+        const { email, name, sub: googleId } = userInfo;
+
+        console.log(`📧 Google OAuth fallback for email: ${email}`);
+
+        // Check if user already exists
+        const existingUser = await databaseBridge.getUserByEmail(email);
+
+        if (existingUser) {
+          // User exists - log them in
+          console.log(`✅ Existing user found via fallback: ${email}`);
+
+          // Generate JWT token
+          const token = jwt.sign(
+            {
+              userId: existingUser.id,
+              email: existingUser.email,
+              isAdmin: existingUser.is_admin
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+
+          res.json({
+            success: true,
+            message: 'Google login successful',
+            user: existingUser,
+            tokens: {
+              jwtToken: token,
+              tokenType: 'Bearer',
+              expiresIn: '24h'
+            },
+            source: 'google-oauth'
+          });
+        } else {
+          // User doesn't exist - create new user
+          console.log(`📝 Creating new user via fallback: ${email}`);
+
+          const newUser = await databaseBridge.createUser({
+            email,
+            name,
+            google_id: googleId,
+            is_verified: true // Google users are pre-verified
+          });
+
+          if (!newUser.success) {
+            return res.status(400).json({
+              success: false,
+              error: newUser.error || 'Failed to create user'
+            });
+          }
+
+          // Generate JWT token for new user
+          const token = jwt.sign(
+            {
+              userId: newUser.user.id,
+              email: newUser.user.email,
+              isAdmin: newUser.user.is_admin
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+          );
+
+          console.log(`✅ New user created via fallback: ${email}`);
+
+          res.json({
+            success: true,
+            message: 'Google signup successful',
+            user: newUser.user,
+            tokens: {
+              jwtToken: token,
+              tokenType: 'Bearer',
+              expiresIn: '24h'
+            },
+            source: 'google-oauth'
+          });
+        }
+
+      } catch (fallbackError) {
+        console.error('❌ Google OAuth fallback also failed:', fallbackError);
+        res.status(500).json({
+          success: false,
+          error: 'Google authentication failed'
+        });
+      }
     }
 
   } catch (error) {
