@@ -465,35 +465,57 @@ router.options('*', (req, res) => {
 // Google OAuth endpoint
 router.post('/google', async (req, res) => {
   try {
+    console.log('🔍 [DEBUG] Google OAuth endpoint hit');
+    console.log('🔍 [DEBUG] Request body:', req.body);
+    console.log('🔍 [DEBUG] Request headers:', req.headers);
+    
     const { idToken } = req.body;
 
     if (!idToken) {
+      console.error('❌ [DEBUG] No idToken in request body');
       return res.status(400).json({
         success: false,
-        error: 'Google ID token is required'
+        error: 'Google token is required'
       });
     }
 
-    console.log('🔐 Google OAuth attempt with ID token');
+    console.log('🔍 [DEBUG] Token received, length:', idToken.length);
+    console.log('🔍 [DEBUG] Token preview:', idToken.substring(0, 20) + '...');
 
+    // First, try to treat it as an access token (this is what the frontend actually sends)
     try {
-      // Verify the Google ID token
-      const ticket = await googleClient.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID
+      console.log('📧 [DEBUG] Trying access token flow first...');
+      
+      // Get user info from Google using the token as access token
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
       });
 
-      const payload = ticket.getPayload();
-      const { email, name, picture, sub: googleId } = payload;
+      console.log('🔍 [DEBUG] Google userinfo response status:', userInfoResponse.status);
+      console.log('🔍 [DEBUG] Google userinfo response headers:', Object.fromEntries(userInfoResponse.headers.entries()));
 
-      console.log(`📧 Google OAuth for email: ${email}`);
+      if (!userInfoResponse.ok) {
+        const errorText = await userInfoResponse.text();
+        console.error('❌ [DEBUG] Google userinfo failed:', errorText);
+        throw new Error(`Failed to get user info from Google: ${userInfoResponse.status} ${errorText}`);
+      }
+
+      const userInfo = await userInfoResponse.json();
+      console.log('✅ [DEBUG] Google userinfo successful:', userInfo);
+      
+      const { email, name, sub: googleId } = userInfo;
+
+      console.log(`📧 [DEBUG] Google OAuth via access token for email: ${email}`);
 
       // Check if user already exists
       const existingUser = await databaseBridge.getUserByEmail(email);
+      console.log('🔍 [DEBUG] Existing user check result:', existingUser ? 'Found' : 'Not found');
 
       if (existingUser) {
         // User exists - log them in
-        console.log(`✅ Existing user found: ${email}`);
+        console.log(`✅ [DEBUG] Existing user found: ${email}`);
 
         // Generate JWT token
         const token = jwt.sign(
@@ -505,6 +527,8 @@ router.post('/google', async (req, res) => {
           JWT_SECRET,
           { expiresIn: '24h' }
         );
+
+        console.log('✅ [DEBUG] JWT token generated successfully');
 
         res.json({
           success: true,
@@ -519,7 +543,7 @@ router.post('/google', async (req, res) => {
         });
       } else {
         // User doesn't exist - create new user
-        console.log(`📝 Creating new user from Google OAuth: ${email}`);
+        console.log(`📝 [DEBUG] Creating new user via Google OAuth: ${email}`);
 
         const newUser = await databaseBridge.createUser({
           email,
@@ -528,7 +552,10 @@ router.post('/google', async (req, res) => {
           is_verified: true // Google users are pre-verified
         });
 
+        console.log('🔍 [DEBUG] User creation result:', newUser);
+
         if (!newUser.success) {
+          console.error('❌ [DEBUG] User creation failed:', newUser.error);
           return res.status(400).json({
             success: false,
             error: newUser.error || 'Failed to create user'
@@ -546,7 +573,7 @@ router.post('/google', async (req, res) => {
           { expiresIn: '24h' }
         );
 
-        console.log(`✅ New user created via Google OAuth: ${email}`);
+        console.log(`✅ [DEBUG] New user created via Google OAuth: ${email}`);
 
         res.json({
           success: true,
@@ -561,34 +588,31 @@ router.post('/google', async (req, res) => {
         });
       }
 
-    } catch (googleError) {
-      console.error('❌ Google token verification failed:', googleError);
+    } catch (accessTokenError) {
+      console.error('❌ [DEBUG] Access token flow failed:', accessTokenError);
       
-      // If Google verification fails, try to handle it as an access token
-      // This is a fallback for when the frontend sends access_token instead of id_token
+      // Fallback: try to verify as ID token
       try {
-        // Get user info from Google using the token as access token
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
+        console.log('📧 [DEBUG] Trying ID token verification as fallback...');
+        
+        const ticket = await googleClient.verifyIdToken({
+          idToken,
+          audience: process.env.GOOGLE_CLIENT_ID
         });
 
-        if (!userInfoResponse.ok) {
-          throw new Error('Failed to get user info from Google');
-        }
+        const payload = ticket.getPayload();
+        console.log('✅ [DEBUG] ID token verification successful, payload:', payload);
+        
+        const { email, name, picture, sub: googleId } = payload;
 
-        const userInfo = await userInfoResponse.json();
-        const { email, name, sub: googleId } = userInfo;
-
-        console.log(`📧 Google OAuth fallback for email: ${email}`);
+        console.log(`📧 [DEBUG] Google OAuth via ID token for email: ${email}`);
 
         // Check if user already exists
         const existingUser = await databaseBridge.getUserByEmail(email);
 
         if (existingUser) {
           // User exists - log them in
-          console.log(`✅ Existing user found via fallback: ${email}`);
+          console.log(`✅ [DEBUG] Existing user found via ID token: ${email}`);
 
           // Generate JWT token
           const token = jwt.sign(
@@ -614,7 +638,7 @@ router.post('/google', async (req, res) => {
           });
         } else {
           // User doesn't exist - create new user
-          console.log(`📝 Creating new user via fallback: ${email}`);
+          console.log(`📝 [DEBUG] Creating new user via ID token: ${email}`);
 
           const newUser = await databaseBridge.createUser({
             email,
@@ -641,7 +665,7 @@ router.post('/google', async (req, res) => {
             { expiresIn: '24h' }
           );
 
-          console.log(`✅ New user created via fallback: ${email}`);
+          console.log(`✅ [DEBUG] New user created via ID token: ${email}`);
 
           res.json({
             success: true,
@@ -656,17 +680,17 @@ router.post('/google', async (req, res) => {
           });
         }
 
-      } catch (fallbackError) {
-        console.error('❌ Google OAuth fallback also failed:', fallbackError);
+      } catch (idTokenError) {
+        console.error('❌ [DEBUG] Both access token and ID token flows failed:', idTokenError);
         res.status(500).json({
           success: false,
-          error: 'Google authentication failed'
+          error: 'Google authentication failed - unable to verify token'
         });
       }
     }
 
   } catch (error) {
-    console.error('❌ Google OAuth error:', error);
+    console.error('❌ [DEBUG] Google OAuth error:', error);
     res.status(500).json({
       success: false,
       error: 'Google authentication failed'
