@@ -561,7 +561,7 @@ router.post('/google', async (req, res) => {
           name,
           google_id: googleId,
           is_verified: true, // Google users are pre-verified
-          phone: '0000000000', // Default phone for Google users (required field)
+          phone: '9876543210', // Valid Indian mobile number for Google users (required field)
           password: Math.random().toString(36).slice(-10) // Generate random password for Google users
         });
 
@@ -664,7 +664,7 @@ router.post('/google', async (req, res) => {
             name,
             google_id: googleId,
             is_verified: true, // Google users are pre-verified
-            phone: '0000000000', // Default phone for Google users (required field)
+            phone: '9876543210', // Valid Indian mobile number for Google users (required field)
             password: Math.random().toString(36).slice(-10) // Generate random password for Google users
           });
 
