@@ -499,6 +499,17 @@ router.post('/google', async (req, res) => {
       if (!userInfoResponse.ok) {
         const errorText = await userInfoResponse.text();
         console.error('❌ [DEBUG] Google userinfo failed:', errorText);
+        console.error('❌ [DEBUG] Response status:', userInfoResponse.status);
+        console.error('❌ [DEBUG] Response headers:', Object.fromEntries(userInfoResponse.headers.entries()));
+        
+        // Try to parse error as JSON if possible
+        try {
+          const errorJson = JSON.parse(errorText);
+          console.error('❌ [DEBUG] Parsed error:', errorJson);
+        } catch (parseError) {
+          console.error('❌ [DEBUG] Raw error text:', errorText);
+        }
+        
         throw new Error(`Failed to get user info from Google: ${userInfoResponse.status} ${errorText}`);
       }
 
@@ -590,10 +601,16 @@ router.post('/google', async (req, res) => {
 
     } catch (accessTokenError) {
       console.error('❌ [DEBUG] Access token flow failed:', accessTokenError);
+      console.error('❌ [DEBUG] Access token error details:', {
+        message: accessTokenError.message,
+        stack: accessTokenError.stack,
+        name: accessTokenError.name
+      });
       
       // Fallback: try to verify as ID token
       try {
         console.log('📧 [DEBUG] Trying ID token verification as fallback...');
+        console.log('🔍 [DEBUG] Google Client ID from env:', process.env.GOOGLE_CLIENT_ID ? 'SET' : 'NOT SET');
         
         const ticket = await googleClient.verifyIdToken({
           idToken,
@@ -681,10 +698,20 @@ router.post('/google', async (req, res) => {
         }
 
       } catch (idTokenError) {
-        console.error('❌ [DEBUG] Both access token and ID token flows failed:', idTokenError);
+        console.error('❌ [DEBUG] Both access token and ID token flows failed');
+        console.error('❌ [DEBUG] ID token error details:', {
+          message: idTokenError.message,
+          stack: idTokenError.stack,
+          name: idTokenError.name
+        });
+        
         res.status(500).json({
           success: false,
-          error: 'Google authentication failed - unable to verify token'
+          error: 'Google authentication failed - unable to verify token',
+          details: {
+            accessTokenError: accessTokenError.message,
+            idTokenError: idTokenError.message
+          }
         });
       }
     }
